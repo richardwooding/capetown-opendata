@@ -19,13 +19,13 @@ const BaseURL = "https://citymaps.capetown.gov.za/agsext/rest/services/Theme_Bas
 
 // Layer IDs for well-known CCT datasets.
 const (
-	LayerLoadSheddingBlocks = 111
+	LayerLoadSheddingBlocks = 138
 	LayerServiceRequests    = 1 // placeholder — verify against live service
-	LayerWards              = 64
+	LayerWards              = 78
 	LayerLandParcels        = 56
-	LayerTaxiRoutes         = 108
-	LayerPublicLighting     = 74
-	LayerWaterQuality       = 229
+	LayerTaxiRoutes         = 97
+	LayerPublicLighting     = 3
+	LayerWaterQuality       = 223
 	LayerHeritageInventory  = 49
 )
 
