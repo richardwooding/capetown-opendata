@@ -18,38 +18,46 @@ func TestLoadSheddingBlocks(t *testing.T) {
 	if p.LayerID != capetown.LayerLoadSheddingBlocks {
 		t.Errorf("LayerID = %d, want %d", p.LayerID, capetown.LayerLoadSheddingBlocks)
 	}
-	if len(p.Fields) == 0 {
-		t.Error("expected default fields to be set")
+	// Pre-built queries no longer pin a field list; the full schema is returned.
+	if len(p.Fields) != 0 {
+		t.Errorf("expected no pinned fields, got %v", p.Fields)
 	}
 }
 
-func TestLoadSheddingBlocksForStage(t *testing.T) {
-	p := capetown.LoadSheddingBlocksForStage(4)
-	if p.Where != "STAGE = 4" {
-		t.Errorf("Where = %q, want STAGE = 4", p.Where)
+func TestLandParcelsBySuburb(t *testing.T) {
+	p := capetown.LandParcelsBySuburb("Newlands")
+	if p.LayerID != capetown.LayerLandParcels {
+		t.Errorf("LayerID = %d, want %d", p.LayerID, capetown.LayerLandParcels)
 	}
-	if p.LayerID != capetown.LayerLoadSheddingBlocks {
-		t.Errorf("LayerID = %d", p.LayerID)
+	if !strings.Contains(p.Where, "Newlands") {
+		t.Errorf("Where = %q, want it to reference Newlands", p.Where)
 	}
 }
 
-func TestServiceRequestsBySuburb(t *testing.T) {
-	p := capetown.ServiceRequestsBySuburb("Woodstock")
-	if !strings.Contains(p.Where, "Woodstock") {
-		t.Errorf("Where = %q, want it to reference Woodstock", p.Where)
+func TestLandParcelsBySuburbEscapesQuotes(t *testing.T) {
+	p := capetown.LandParcelsBySuburb("O'Hara")
+	if !strings.Contains(p.Where, "O''Hara") {
+		t.Errorf("Where = %q, want escaped single quote", p.Where)
+	}
+}
+
+func TestWaterQualityResultsOrdered(t *testing.T) {
+	p := capetown.WaterQualityResults()
+	if p.LayerID != capetown.LayerWaterQuality {
+		t.Errorf("LayerID = %d, want %d", p.LayerID, capetown.LayerWaterQuality)
 	}
 	if len(p.OrderByFields) == 0 {
-		t.Error("expected service requests to be ordered")
+		t.Error("expected water quality results to be ordered by date")
 	}
 }
 
 func TestNamedQueriesHaveLayerIDs(t *testing.T) {
 	cases := map[string]int{
+		"LoadSheddingBlocks":  capetown.LoadSheddingBlocks().LayerID,
 		"Wards":               capetown.Wards().LayerID,
 		"LandParcels":         capetown.LandParcels().LayerID,
 		"TaxiRoutes":          capetown.TaxiRoutes().LayerID,
 		"WaterQualityResults": capetown.WaterQualityResults().LayerID,
-		"ServiceRequests":     capetown.ServiceRequests().LayerID,
 	}
 	for name, id := range cases {
 		if id <= 0 {
