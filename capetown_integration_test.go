@@ -12,6 +12,7 @@ package capetown_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -24,21 +25,45 @@ import (
 // these tests exist to catch schema drift, not to benchmark response times.
 const liveTimeout = 60 * time.Second
 
+// liveAttempts is how many times a live call is retried when it times out. The
+// municipal service has intermittent multi-second latency spikes; without
+// retries a single slow response turns the daily drift check red even though
+// nothing has actually drifted. Genuine drift (a moved layer ID, a renamed
+// field, an HTTP 4xx) surfaces as a deterministic error rather than a timeout,
+// so it is not retried — see retry.
+const liveAttempts = 3
+
 func liveClient() *arcgis.Client {
 	return arcgis.NewClient(capetown.BaseURL, arcgis.WithTimeout(liveTimeout))
 }
 
-func ctx(t *testing.T) context.Context {
+// retry runs fn with a fresh per-attempt timeout context until it succeeds,
+// returns a non-timeout error, or attempts are exhausted, returning the final
+// result and error. Only context.DeadlineExceeded is treated as transient and
+// retried; every other error (including the deterministic ones that signal real
+// drift) returns immediately so the check still fails fast and loudly.
+func retry[T any](t *testing.T, label string, fn func(context.Context) (T, error)) (T, error) {
 	t.Helper()
-	c, cancel := context.WithTimeout(context.Background(), liveTimeout)
-	t.Cleanup(cancel)
-	return c
+	var (
+		out T
+		err error
+	)
+	for attempt := 1; attempt <= liveAttempts; attempt++ {
+		c, cancel := context.WithTimeout(context.Background(), liveTimeout)
+		out, err = fn(c)
+		cancel()
+		if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+			return out, err
+		}
+		t.Logf("%s: attempt %d/%d timed out, retrying: %v", label, attempt, liveAttempts, err)
+	}
+	return out, err
 }
 
 // TestLiveLayerIDsExist asserts every named layer ID is still published by the
 // service (as either a layer or a table).
 func TestLiveLayerIDsExist(t *testing.T) {
-	info, err := liveClient().ServiceInfo(ctx(t))
+	info, err := retry(t, "ServiceInfo", liveClient().ServiceInfo)
 	if err != nil {
 		t.Fatalf("ServiceInfo: %v", err)
 	}
@@ -80,7 +105,10 @@ func TestLiveNamedQueriesSucceed(t *testing.T) {
 	for name, p := range cases {
 		t.Run(name, func(t *testing.T) {
 			p.PageSize = 1
-			if _, err := c.Query(ctx(t), p); err != nil {
+			_, err := retry(t, name, func(c2 context.Context) (*arcgis.FeatureSet, error) {
+				return c.Query(c2, p)
+			})
+			if err != nil {
 				t.Errorf("%s query failed against live service: %v", name, err)
 			}
 		})
@@ -101,7 +129,9 @@ func TestLiveFilterFieldsExist(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			info, err := c.LayerInfo(ctx(t), tc.layerID)
+			info, err := retry(t, tc.name, func(c2 context.Context) (*arcgis.LayerInfo, error) {
+				return c.LayerInfo(c2, tc.layerID)
+			})
 			if err != nil {
 				t.Fatalf("LayerInfo(%d): %v", tc.layerID, err)
 			}
