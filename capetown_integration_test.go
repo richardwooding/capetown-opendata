@@ -25,23 +25,40 @@ import (
 // these tests exist to catch schema drift, not to benchmark response times.
 const liveTimeout = 60 * time.Second
 
-// liveAttempts is how many times a live call is retried when it times out. The
-// municipal service has intermittent multi-second latency spikes; without
-// retries a single slow response turns the daily drift check red even though
+// liveAttempts is how many times a live call is retried on a transient failure.
+// The municipal service has intermittent multi-second latency spikes and
+// periodically returns HTTP 5xx while a MapServer restarts; without retries a
+// single slow or server-side blip turns the daily drift check red even though
 // nothing has actually drifted. Genuine drift (a moved layer ID, a renamed
-// field, an HTTP 4xx) surfaces as a deterministic error rather than a timeout,
-// so it is not retried — see retry.
+// field, an HTTP 4xx) surfaces as a deterministic error rather than a transient
+// one, so it is not retried — see retry and isTransient.
 const liveAttempts = 3
 
 func liveClient() *arcgis.Client {
 	return arcgis.NewClient(capetown.BaseURL, arcgis.WithTimeout(liveTimeout))
 }
 
+// isTransient reports whether err is a temporary upstream condition that a
+// retry might clear, as opposed to a deterministic error that signals real
+// drift. Two cases qualify: a per-attempt timeout (latency spike) and an ArcGIS
+// 5xx (the service is down or a MapServer is still starting). A 4xx — an
+// invalid query, a missing layer — is deterministic and returns immediately so
+// the check still fails fast and loudly.
+func isTransient(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var apiErr *arcgis.APIError
+	if errors.As(err, &apiErr) && apiErr.Code >= 500 && apiErr.Code < 600 {
+		return true
+	}
+	return false
+}
+
 // retry runs fn with a fresh per-attempt timeout context until it succeeds,
-// returns a non-timeout error, or attempts are exhausted, returning the final
-// result and error. Only context.DeadlineExceeded is treated as transient and
-// retried; every other error (including the deterministic ones that signal real
-// drift) returns immediately so the check still fails fast and loudly.
+// returns a non-transient error, or attempts are exhausted, returning the final
+// result and error. Only transient errors (see isTransient) are retried; every
+// other error returns immediately.
 func retry[T any](t *testing.T, label string, fn func(context.Context) (T, error)) (T, error) {
 	t.Helper()
 	var (
@@ -52,10 +69,10 @@ func retry[T any](t *testing.T, label string, fn func(context.Context) (T, error
 		c, cancel := context.WithTimeout(context.Background(), liveTimeout)
 		out, err = fn(c)
 		cancel()
-		if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		if err == nil || !isTransient(err) {
 			return out, err
 		}
-		t.Logf("%s: attempt %d/%d timed out, retrying: %v", label, attempt, liveAttempts, err)
+		t.Logf("%s: attempt %d/%d failed transiently, retrying: %v", label, attempt, liveAttempts, err)
 	}
 	return out, err
 }
