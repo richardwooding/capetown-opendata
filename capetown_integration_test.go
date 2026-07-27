@@ -1,13 +1,14 @@
 //go:build integration
 
 // Package capetown integration tests validate the pre-built queries against the
-// live City of Cape Town Feature Service. They hit the network and are excluded
-// from the default build; run them with:
+// live City of Cape Town feature services. They hit the network and are
+// excluded from the default build; run them with:
 //
 //	go test -tags=integration ./...
 //
-// Their job is to catch upstream drift: a layer ID that has moved, a filter or
-// order-by column that has been renamed, or a query the service rejects.
+// Their job is to catch upstream drift: a dataset that has moved to a different
+// split service, a layer ID that has moved, a filter or order-by column that
+// has been renamed, or a query the service rejects.
 package capetown_test
 
 import (
@@ -34,8 +35,22 @@ const liveTimeout = 60 * time.Second
 // one, so it is not retried — see retry and isTransient.
 const liveAttempts = 3
 
-func liveClient() *arcgis.Client {
-	return arcgis.NewClient(capetown.BaseURL, arcgis.WithTimeout(liveTimeout))
+// datasets is every pre-built dataset locator, keyed by a readable name.
+func datasets() map[string]capetown.Query {
+	return map[string]capetown.Query{
+		"LoadSheddingBlocks":  capetown.LoadSheddingBlocks(),
+		"Wards":               capetown.Wards(),
+		"LandParcels":         capetown.LandParcels(),
+		"LandParcelsBySuburb": capetown.LandParcelsBySuburb("Newlands"),
+		"TaxiRoutes":          capetown.TaxiRoutes(),
+		"PublicLighting":      capetown.PublicLighting(),
+		"WaterQualityResults": capetown.WaterQualityResults(),
+		"HeritageInventory":   capetown.HeritageInventory(),
+	}
+}
+
+func liveClient(service string) *arcgis.Client {
+	return arcgis.NewClient(capetown.ServiceURL(service), arcgis.WithTimeout(liveTimeout))
 }
 
 // isTransient reports whether err is a temporary upstream condition that a
@@ -77,56 +92,44 @@ func retry[T any](t *testing.T, label string, fn func(context.Context) (T, error
 	return out, err
 }
 
-// TestLiveLayerIDsExist asserts every named layer ID is still published by the
-// service (as either a layer or a table).
+// TestLiveLayerIDsExist asserts every dataset's layer ID is still published by
+// the split service it claims to live on (as either a layer or a table).
 func TestLiveLayerIDsExist(t *testing.T) {
-	info, err := retry(t, "ServiceInfo", liveClient().ServiceInfo)
-	if err != nil {
-		t.Fatalf("ServiceInfo: %v", err)
-	}
-	present := map[int]bool{}
-	for _, l := range info.Layers {
-		present[l.ID] = true
-	}
-	for _, tbl := range info.Tables {
-		present[tbl.ID] = true
-	}
-	for name, id := range map[string]int{
-		"LayerLoadSheddingBlocks": capetown.LayerLoadSheddingBlocks,
-		"LayerWards":              capetown.LayerWards,
-		"LayerLandParcels":        capetown.LayerLandParcels,
-		"LayerTaxiRoutes":         capetown.LayerTaxiRoutes,
-		"LayerPublicLighting":     capetown.LayerPublicLighting,
-		"LayerWaterQuality":       capetown.LayerWaterQuality,
-		"LayerHeritageInventory":  capetown.LayerHeritageInventory,
-	} {
-		if !present[id] {
-			t.Errorf("%s = %d is no longer published by the service", name, id)
-		}
+	for name, q := range datasets() {
+		t.Run(name, func(t *testing.T) {
+			c := liveClient(q.Service)
+			info, err := retry(t, name, c.ServiceInfo)
+			if err != nil {
+				t.Fatalf("ServiceInfo(%s): %v", q.Service, err)
+			}
+			present := map[int]bool{}
+			for _, l := range info.Layers {
+				present[l.ID] = true
+			}
+			for _, tbl := range info.Tables {
+				present[tbl.ID] = true
+			}
+			if !present[q.Params.LayerID] {
+				t.Errorf("%s: layer %d is no longer published by %s", name, q.Params.LayerID, q.Service)
+			}
+		})
 	}
 }
 
-// TestLiveNamedQueriesSucceed runs every pre-built query against the live
+// TestLiveNamedQueriesSucceed runs every pre-built query against its live split
 // service. A drifted layer ID, bad order-by field, or otherwise malformed query
 // surfaces here as a non-nil error.
 func TestLiveNamedQueriesSucceed(t *testing.T) {
-	c := liveClient()
-	cases := map[string]arcgis.QueryParams{
-		"LoadSheddingBlocks":  capetown.LoadSheddingBlocks(),
-		"Wards":               capetown.Wards(),
-		"LandParcels":         capetown.LandParcels(),
-		"LandParcelsBySuburb": capetown.LandParcelsBySuburb("Newlands"),
-		"TaxiRoutes":          capetown.TaxiRoutes(),
-		"WaterQualityResults": capetown.WaterQualityResults(),
-	}
-	for name, p := range cases {
+	for name, q := range datasets() {
 		t.Run(name, func(t *testing.T) {
+			c := liveClient(q.Service)
+			p := q.Params
 			p.PageSize = 1
 			_, err := retry(t, name, func(c2 context.Context) (*arcgis.FeatureSet, error) {
 				return c.Query(c2, p)
 			})
 			if err != nil {
-				t.Errorf("%s query failed against live service: %v", name, err)
+				t.Errorf("%s query failed against live service %s: %v", name, q.Service, err)
 			}
 		})
 	}
@@ -135,29 +138,30 @@ func TestLiveNamedQueriesSucceed(t *testing.T) {
 // TestLiveFilterFieldsExist asserts the columns referenced by filters and
 // ordering still exist on their layers.
 func TestLiveFilterFieldsExist(t *testing.T) {
-	c := liveClient()
 	cases := []struct {
 		name    string
+		service string
 		layerID int
 		field   string
 	}{
-		{"land parcel suburb", capetown.LayerLandParcels, "OFC_SBRB_NAME"},
-		{"water quality sample date", capetown.LayerWaterQuality, "SMPL_DATE"},
+		{"land parcel suburb", capetown.ServiceLandParcels, capetown.LayerLandParcels, "OFC_SBRB_NAME"},
+		{"water quality sample date", capetown.ServiceWaterQuality, capetown.LayerWaterQuality, "SMPL_DATE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			c := liveClient(tc.service)
 			info, err := retry(t, tc.name, func(c2 context.Context) (*arcgis.LayerInfo, error) {
 				return c.LayerInfo(c2, tc.layerID)
 			})
 			if err != nil {
-				t.Fatalf("LayerInfo(%d): %v", tc.layerID, err)
+				t.Fatalf("LayerInfo(%s/%d): %v", tc.service, tc.layerID, err)
 			}
 			for _, f := range info.Fields {
 				if f.Name == tc.field {
 					return
 				}
 			}
-			t.Errorf("field %q not found on layer %d (%s)", tc.field, tc.layerID, info.Name)
+			t.Errorf("field %q not found on %s layer %d (%s)", tc.field, tc.service, tc.layerID, info.Name)
 		})
 	}
 }
