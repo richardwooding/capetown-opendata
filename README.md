@@ -61,6 +61,12 @@ for _, l := range info.Layers {
 
 See [CHANGELOG.md](CHANGELOG.md).
 
+## Sponsor
+
+If this saves you time, you can [sponsor its maintenance](https://github.com/sponsors/richardwooding).
+Sponsorship pays for the unglamorous half — triage, dependency bumps, release plumbing — and is
+never a condition of getting help here.
+
 ## License
 
 [MIT](LICENSE)
