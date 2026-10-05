@@ -46,6 +46,8 @@ func datasets() map[string]capetown.Query {
 		"PublicLighting":      capetown.PublicLighting(),
 		"WaterQualityResults": capetown.WaterQualityResults(),
 		"HeritageInventory":   capetown.HeritageInventory(),
+		"ServiceRequests":     capetown.ServiceRequests(),
+		"BuildingPlans":       capetown.BuildingPlanApprovals(),
 	}
 }
 
@@ -146,6 +148,12 @@ func TestLiveFilterFieldsExist(t *testing.T) {
 	}{
 		{"land parcel suburb", capetown.ServiceLandParcels, capetown.LayerLandParcels, "OFC_SBRB_NAME"},
 		{"water quality sample date", capetown.ServiceWaterQuality, capetown.LayerWaterQuality, "SMPL_DATE"},
+		{"service request ward", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "Ward"},
+		{"service request complaint type", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "C3_Complaint_Type"},
+		{"service request created date", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "Created_On_Date"},
+		{"building plan ward", capetown.ServiceBuildingPlans, capetown.LayerBuildingPlans, "Ward_No"},
+		{"building plan submission date", capetown.ServiceBuildingPlans, capetown.LayerBuildingPlans, "Submission_Date"},
+		{"building plan approval date", capetown.ServiceBuildingPlans, capetown.LayerBuildingPlans, "Approval_Date"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -162,6 +170,30 @@ func TestLiveFilterFieldsExist(t *testing.T) {
 				}
 			}
 			t.Errorf("field %q not found on %s layer %d (%s)", tc.field, tc.service, tc.layerID, info.Name)
+		})
+	}
+}
+
+// TestLiveHubItemsResolve asserts each ArcGIS Online item ID still points at a
+// live FeatureServer, and flags when the City has republished it under a new
+// URL so the fallback in ServiceURL can be refreshed.
+func TestLiveHubItemsResolve(t *testing.T) {
+	for _, svc := range capetown.HubServices() {
+		t.Run(svc, func(t *testing.T) {
+			id, _ := capetown.HubItemID(svc)
+			u, err := retry(t, svc, func(c context.Context) (string, error) {
+				return arcgis.ItemURL(c, arcgis.ArcGISOnline, id, arcgis.WithTimeout(liveTimeout))
+			})
+			if err != nil {
+				t.Fatalf("ItemURL(%s): %v", id, err)
+			}
+			if u != capetown.ServiceURL(svc) {
+				t.Logf("%s now resolves to %s; refresh its fallback URL", svc, u)
+			}
+			c := arcgis.NewClient(u, arcgis.WithTimeout(liveTimeout))
+			if _, err := retry(t, svc, c.ServiceInfo); err != nil {
+				t.Errorf("ServiceInfo(%s): %v", u, err)
+			}
 		})
 	}
 }

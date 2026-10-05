@@ -34,7 +34,54 @@ const BaseFolder = "https://citymaps.capetown.gov.za/agsext/rest/services/Theme_
 // ServiceURL("ODP_SPLIT_5") →
 // https://citymaps.capetown.gov.za/agsext/rest/services/Theme_Based/ODP_SPLIT_5/FeatureServer.
 func ServiceURL(service string) string {
+	if h, ok := hubDatasets[service]; ok {
+		return h.fallbackURL
+	}
 	return BaseFolder + "/" + service + "/FeatureServer"
+}
+
+// Datasets the City hosts on ArcGIS Online rather than the ODP_SPLIT services.
+// Their service names embed dates and go stale, so each is pinned to its hub
+// item ID; resolve the current URL with arcgis.ItemURL and fall back to
+// ServiceURL.
+const (
+	ServiceServiceRequests = "SERVICE_REQUESTS"
+	ServiceBuildingPlans   = "BUILDING_PLANS"
+)
+
+// Layer IDs within the ArcGIS Online datasets; both are non-spatial tables.
+const (
+	LayerServiceRequests = 0
+	LayerBuildingPlans   = 0
+)
+
+type hubDataset struct {
+	itemID      string
+	fallbackURL string
+}
+
+const agolFolder = "https://services6.arcgis.com/nyYfO9SxHU2ChQd9/arcgis/rest/services"
+
+var hubDatasets = map[string]hubDataset{
+	ServiceServiceRequests: {
+		itemID:      "90711027d33940b5a06e96ad8a8f7ede",
+		fallbackURL: agolFolder + "/Service_Requests_2023_until_20_May_2026/FeatureServer",
+	},
+	ServiceBuildingPlans: {
+		itemID:      "a9a32e2ecc074b318ee0ad136fb7e2af",
+		fallbackURL: agolFolder + "/Building_Plan_Approvals_2014_to_2025/FeatureServer",
+	},
+}
+
+// HubItemID returns the ArcGIS Online item ID for a hub-hosted service key.
+func HubItemID(service string) (string, bool) {
+	h, ok := hubDatasets[service]
+	return h.itemID, ok
+}
+
+// HubServices lists the service keys hosted on ArcGIS Online.
+func HubServices() []string {
+	return []string{ServiceServiceRequests, ServiceBuildingPlans}
 }
 
 // Split feature-service names hosting the well-known datasets, validated
@@ -150,6 +197,30 @@ func WaterQualityResults() Query {
 		Params: arcgis.QueryParams{
 			LayerID:       LayerWaterQuality,
 			OrderByFields: []string{"SMPL_DATE DESC"},
+		},
+	}
+}
+
+// --- ArcGIS Online datasets ---
+
+// ServiceRequests returns citizen service requests, newest first.
+func ServiceRequests() Query {
+	return Query{
+		Service: ServiceServiceRequests,
+		Params: arcgis.QueryParams{
+			LayerID:       LayerServiceRequests,
+			OrderByFields: []string{"Created_On_Date DESC"},
+		},
+	}
+}
+
+// BuildingPlanApprovals returns building plan applications, newest submission first.
+func BuildingPlanApprovals() Query {
+	return Query{
+		Service: ServiceBuildingPlans,
+		Params: arcgis.QueryParams{
+			LayerID:       LayerBuildingPlans,
+			OrderByFields: []string{"Submission_Date DESC"},
 		},
 	}
 }

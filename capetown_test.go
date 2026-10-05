@@ -1,6 +1,7 @@
 package capetown_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -92,6 +93,40 @@ func TestNamedQueriesHaveLocators(t *testing.T) {
 		}
 		if q.Params.LayerID < 0 {
 			t.Errorf("%s: layer ID = %d, want >= 0", name, q.Params.LayerID)
+		}
+	}
+}
+
+func TestHubServicesResolve(t *testing.T) {
+	for _, svc := range capetown.HubServices() {
+		id, ok := capetown.HubItemID(svc)
+		if !ok || len(id) != 32 {
+			t.Errorf("HubItemID(%s) = %q, %v", svc, id, ok)
+		}
+		if u := capetown.ServiceURL(svc); !strings.HasPrefix(u, "https://services6.arcgis.com/") || !strings.HasSuffix(u, "/FeatureServer") {
+			t.Errorf("ServiceURL(%s) = %q, want an ArcGIS Online FeatureServer", svc, u)
+		}
+		if slices.Contains(capetown.Services(), svc) {
+			t.Errorf("Services() must stay ODP-only but contains %s", svc)
+		}
+	}
+	if _, ok := capetown.HubItemID("ODP_SPLIT_5"); ok {
+		t.Error("HubItemID(ODP_SPLIT_5) reported a hub item")
+	}
+}
+
+func TestHubDatasetQueries(t *testing.T) {
+	cases := map[string]struct {
+		q       capetown.Query
+		service string
+		order   string
+	}{
+		"ServiceRequests":       {capetown.ServiceRequests(), capetown.ServiceServiceRequests, "Created_On_Date DESC"},
+		"BuildingPlanApprovals": {capetown.BuildingPlanApprovals(), capetown.ServiceBuildingPlans, "Submission_Date DESC"},
+	}
+	for name, tc := range cases {
+		if tc.q.Service != tc.service || len(tc.q.Params.OrderByFields) != 1 || tc.q.Params.OrderByFields[0] != tc.order {
+			t.Errorf("%s = %+v, want service %s ordered by %s", name, tc.q, tc.service, tc.order)
 		}
 	}
 }
