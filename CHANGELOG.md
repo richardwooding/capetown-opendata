@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-10-05
+
+### Changed
+- Bumped `go-arcgis` to v0.3.0 (no API change upstream).
+- Raised the minimum Go version to 1.27 and applied the Go 1.27 modernizers.
+
 ## [0.2.0] - 2026-07-27
 
 The City of Cape Town retired the monolithic `Theme_Based/Open_Data_Service`
@@ -41,5 +47,6 @@ module.
   `LoadSheddingBlocksForStage`, `ServiceRequests`, `ServiceRequestsBySuburb`,
   `Wards`, `LandParcels`, `TaxiRoutes`, and `WaterQualityResults`.
 
+[0.2.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.2.1
 [0.2.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.2.0
 [0.1.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.1.0
