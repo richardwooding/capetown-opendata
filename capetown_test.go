@@ -121,7 +121,7 @@ func TestHubDatasetQueries(t *testing.T) {
 		service string
 		order   string
 	}{
-		"ServiceRequests":       {capetown.ServiceRequests(), capetown.ServiceServiceRequests, "Created_On_Date DESC"},
+		"ServiceRequests":       {capetown.ServiceRequests(), capetown.ServiceServiceRequests, "ObjectId DESC"},
 		"BuildingPlanApprovals": {capetown.BuildingPlanApprovals(), capetown.ServiceBuildingPlans, "Submission_Date DESC"},
 	}
 	for name, tc := range cases {

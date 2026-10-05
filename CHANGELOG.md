@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-05
+
+### Fixed
+- `ServiceRequests()` now orders by `ObjectId DESC` instead of
+  `Created_On_Date DESC`. Sorting the five-million-row table by date took
+  ArcGIS Online about 20 seconds per page and timed out when paging; the
+  object ID is indexed, and its highest values are the newest requests.
+
 ## [0.3.0] - 2026-10-05
 
 ### Added
@@ -63,6 +71,7 @@ module.
   `LoadSheddingBlocksForStage`, `ServiceRequests`, `ServiceRequestsBySuburb`,
   `Wards`, `LandParcels`, `TaxiRoutes`, and `WaterQualityResults`.
 
+[0.3.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.1
 [0.3.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.0
 [0.2.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.2.1
 [0.2.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.2.0

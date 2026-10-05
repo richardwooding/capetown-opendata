@@ -203,13 +203,16 @@ func WaterQualityResults() Query {
 
 // --- ArcGIS Online datasets ---
 
-// ServiceRequests returns citizen service requests, newest first.
+// ServiceRequests returns citizen service requests, most recently loaded first.
+// Sorting the five-million-row table by Created_On_Date takes ArcGIS Online
+// tens of seconds and times out when paging, whereas the object ID is indexed
+// and its highest values are the newest requests.
 func ServiceRequests() Query {
 	return Query{
 		Service: ServiceServiceRequests,
 		Params: arcgis.QueryParams{
 			LayerID:       LayerServiceRequests,
-			OrderByFields: []string{"Created_On_Date DESC"},
+			OrderByFields: []string{"ObjectId DESC"},
 		},
 	}
 }
