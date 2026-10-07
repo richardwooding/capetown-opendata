@@ -3,7 +3,7 @@
 //
 // In 2025 the City retired the single monolithic
 // Theme_Based/Open_Data_Service and split its layers across a set of themed
-// feature services named ODP_SPLIT_1 … ODP_SPLIT_12, renumbering layer IDs per
+// feature services named ODP_SPLIT_1 … ODP_SPLIT_13, renumbering layer IDs per
 // service from zero. A dataset is therefore identified by BOTH a service name
 // and a layer ID, so the constructors here return a [Query] carrying both.
 //
@@ -26,18 +26,29 @@ import (
 	arcgis "github.com/richardwooding/go-arcgis"
 )
 
-// BaseFolder is the ArcGIS REST folder that hosts the City of Cape Town Open
-// Data feature services (the ODP_SPLIT_* services live directly under it).
-const BaseFolder = "https://citymaps.capetown.gov.za/agsext/rest/services/Theme_Based"
+// The City publishes the ODP_SPLIT services from two ArcGIS servers. The open
+// data hub links to esapqa, which also carries ODP_SPLIT_9 as a feature service
+// and ODP_SPLIT_13; citymaps has neither. Record counts differ on some layers.
+const (
+	FolderESAPQA   = "https://esapqa.capetown.gov.za/agsext/rest/services/Theme_Based"
+	FolderCityMaps = "https://citymaps.capetown.gov.za/agsext/rest/services/Theme_Based"
+)
 
-// ServiceURL returns the FeatureServer endpoint for a named split service, e.g.
-// ServiceURL("ODP_SPLIT_5") →
-// https://citymaps.capetown.gov.za/agsext/rest/services/Theme_Based/ODP_SPLIT_5/FeatureServer.
+// BaseFolder is the default ArcGIS REST folder for the ODP_SPLIT services.
+const BaseFolder = FolderESAPQA
+
+// ServiceURL returns the FeatureServer endpoint for a service on BaseFolder.
 func ServiceURL(service string) string {
+	return ServiceURLIn(BaseFolder, service)
+}
+
+// ServiceURLIn returns the FeatureServer endpoint for a service under folder.
+// ArcGIS Online datasets ignore folder and return their fallback URL.
+func ServiceURLIn(folder, service string) string {
 	if h, ok := hubDatasets[service]; ok {
 		return h.fallbackURL
 	}
-	return BaseFolder + "/" + service + "/FeatureServer"
+	return strings.TrimRight(folder, "/") + "/" + service + "/FeatureServer"
 }
 
 // Datasets the City hosts on ArcGIS Online rather than the ODP_SPLIT services.
@@ -125,6 +136,7 @@ func Services() []string {
 		"ODP_SPLIT_1", "ODP_SPLIT_2", "ODP_SPLIT_3", "ODP_SPLIT_4",
 		"ODP_SPLIT_5", "ODP_SPLIT_6", "ODP_SPLIT_7", "ODP_SPLIT_8",
 		"ODP_SPLIT_9", "ODP_SPLIT_10", "ODP_SPLIT_11", "ODP_SPLIT_12",
+		"ODP_SPLIT_13",
 	}
 }
 

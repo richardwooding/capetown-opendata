@@ -16,6 +16,21 @@ func TestServiceURL(t *testing.T) {
 	if !strings.Contains(u, "/ODP_SPLIT_5/") {
 		t.Errorf("ServiceURL should embed the service name, got %q", u)
 	}
+	if want := capetown.FolderESAPQA + "/ODP_SPLIT_5/FeatureServer"; u != want {
+		t.Errorf("ServiceURL default = %q, want %q", u, want)
+	}
+}
+
+func TestServiceURLIn(t *testing.T) {
+	if got, want := capetown.ServiceURLIn(capetown.FolderCityMaps, "ODP_SPLIT_5"), capetown.FolderCityMaps+"/ODP_SPLIT_5/FeatureServer"; got != want {
+		t.Errorf("ServiceURLIn(citymaps) = %q, want %q", got, want)
+	}
+	if got, want := capetown.ServiceURLIn("https://example.org/rest/services/X/", "ODP_SPLIT_1"), "https://example.org/rest/services/X/ODP_SPLIT_1/FeatureServer"; got != want {
+		t.Errorf("trailing slash: got %q, want %q", got, want)
+	}
+	if got := capetown.ServiceURLIn(capetown.FolderCityMaps, capetown.ServiceServiceRequests); got != capetown.ServiceURL(capetown.ServiceServiceRequests) {
+		t.Errorf("hub datasets must ignore the folder, got %q", got)
+	}
 }
 
 func TestServicesNonEmpty(t *testing.T) {

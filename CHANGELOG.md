@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-07
+
+### Changed
+- **The default server is now `esapqa.capetown.gov.za`** instead of
+  `citymaps.capetown.gov.za`. `BaseFolder` equals the new `FolderESAPQA`.
+  The City's open data hub links its datasets to esapqa, which also publishes
+  ODP_SPLIT_9 as a feature service and adds ODP_SPLIT_13. Record counts differ
+  between the two servers on some layers. Use `FolderCityMaps` with
+  `ServiceURLIn` to keep reading from citymaps.
+
+### Added
+- `FolderESAPQA` and `FolderCityMaps` constants, and
+  `ServiceURLIn(folder, service)` to address a service on any server folder.
+- `ODP_SPLIT_13` in `Services()`: beaches, tidal pools, public toilets, bath
+  houses, spray parks, stadia, recreation centres, ratepayers' associations,
+  dam levels and rainfall. It exists on esapqa only.
+- Live tests honour a `CAPETOWN_BASE_FOLDER` environment variable to check a
+  server other than the default.
+
 ## [0.3.1] - 2026-10-05
 
 ### Fixed
@@ -71,6 +90,7 @@ module.
   `LoadSheddingBlocksForStage`, `ServiceRequests`, `ServiceRequestsBySuburb`,
   `Wards`, `LandParcels`, `TaxiRoutes`, and `WaterQualityResults`.
 
+[0.4.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.4.0
 [0.3.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.1
 [0.3.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.0
 [0.2.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.2.1

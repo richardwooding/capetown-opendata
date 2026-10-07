@@ -14,6 +14,7 @@ package capetown_test
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -51,8 +52,14 @@ func datasets() map[string]capetown.Query {
 	}
 }
 
+// liveClient targets BaseFolder unless CAPETOWN_BASE_FOLDER names another
+// server folder, so the alternate City host can be checked by hand.
 func liveClient(service string) *arcgis.Client {
-	return arcgis.NewClient(capetown.ServiceURL(service), arcgis.WithTimeout(liveTimeout))
+	folder := capetown.BaseFolder
+	if f := os.Getenv("CAPETOWN_BASE_FOLDER"); f != "" {
+		folder = f
+	}
+	return arcgis.NewClient(capetown.ServiceURLIn(folder, service), arcgis.WithTimeout(liveTimeout))
 }
 
 // isTransient reports whether err is a temporary upstream condition that a
