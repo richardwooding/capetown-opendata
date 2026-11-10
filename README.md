@@ -4,8 +4,8 @@
 [![Go](https://github.com/richardwooding/capetown-opendata/actions/workflows/go.yml/badge.svg)](https://github.com/richardwooding/capetown-opendata/actions/workflows/go.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Named layer IDs and pre-built queries for the **City of Cape Town Open Data
-Portal**, on top of [`go-arcgis`](https://github.com/richardwooding/go-arcgis).
+Named dataset locators and pre-built queries for the **City of Cape Town Open
+Data Portal**, on top of [`go-arcgis`](https://github.com/richardwooding/go-arcgis).
 
 ```go
 import (
@@ -13,11 +13,12 @@ import (
     capetown "github.com/richardwooding/capetown-opendata"
 )
 
-client := arcgis.NewClient(capetown.BaseURL)
+// A dataset is a split service plus a layer ID within it.
+q := capetown.LandParcelsBySuburb("Newlands")
+client := arcgis.NewClient(capetown.ServiceURL(q.Service))
 
-// Pre-built, optionally refined
-features, err := client.Layer(capetown.LayerLoadSheddingBlocks).Query().
-    From(capetown.LoadSheddingBlocksForStage(4)).
+features, err := client.Layer(q.Params.LayerID).Query().
+    From(q.Params).
     WithinEnvelope(18.4, -34.0, 18.6, -33.8).
     All(ctx)
 ```
@@ -28,30 +29,45 @@ features, err := client.Layer(capetown.LayerLoadSheddingBlocks).Query().
 go get github.com/richardwooding/capetown-opendata
 ```
 
-Requires Go 1.26+. Depends only on
+Requires Go 1.27+. Depends only on
 [`go-arcgis`](https://github.com/richardwooding/go-arcgis).
 
 ## What's here
 
-- `BaseURL` — the CCT Open Data Feature Service endpoint.
-- Named layer constants (`LayerLoadSheddingBlocks`, `LayerWards`,
-  `LayerLandParcels`, `LayerTaxiRoutes`, `LayerWaterQuality`, …).
-- Pre-built `arcgis.QueryParams` constructors with sensible default fields and
-  ordering: `LoadSheddingBlocks`, `LoadSheddingBlocksForStage`,
-  `ServiceRequests`, `ServiceRequestsBySuburb`, `Wards`, `LandParcels`,
-  `TaxiRoutes`, `WaterQualityResults`.
+The City publishes its open data across thirteen themed feature services
+(`ODP_SPLIT_1` … `ODP_SPLIT_13`), each numbering its layers from zero, plus a
+handful of tables hosted on ArcGIS Online. This package names the ones worth
+knowing:
 
-Each constructor returns a plain `arcgis.QueryParams`, so you can run it
-directly or refine it through the `go-arcgis` fluent builder via `.From(...)`.
+- `Services()` lists the split services; `ServiceURL(service)` and
+  `ServiceURLIn(folder, service)` build their FeatureServer endpoints on the
+  default `esapqa` server or the alternate `citymaps` one.
+- `Service*` and `Layer*` constants locate each dataset, and constructors
+  return a `Query{Service, Params}` with sensible ordering: `Wards`,
+  `OfficialSuburbs` / `OfficialSuburbByName`, `LandParcels` /
+  `LandParcelsBySuburb`, `LoadSheddingBlocks`, `TaxiRoutes`, `PublicLighting`,
+  `HeritageInventory`, `WaterQualityResults`.
+- ArcGIS Online tables are pinned to their hub item IDs, because the City
+  republishes them under date-stamped service names: `ServiceRequests`,
+  `BuildingPlanApprovals`, `PopulationEstimates` /
+  `PopulationEstimateForSuburb` and `TaxiFares` / `TaxiFaresFromRank`.
+  `HubServices()` lists their keys and `HubItemID(service)` gives the item ID;
+  resolve the current URL with `arcgis.ItemURL` (or `arcgis.ItemInfo` for the
+  title and modified date) and fall back to `ServiceURL`.
+
+Constructors do not pin a field list, so each query returns the layer's full
+schema; select columns at the call site. Name filters match case-insensitively
+because several City layers store names in upper case.
 
 ## A note on layer IDs
 
-The layer IDs here are best-effort and may drift as the upstream service is
-republished. Confirm them against the live service with `Client.ServiceInfo`
-if accuracy matters:
+Service names and layer IDs are best-effort and may drift as the portal is
+republished. A daily live check runs the integration tests
+(`go test -tags=integration ./...`) against the City's services to catch
+drift. Confirm a suspect locator yourself with `Client.ServiceInfo`:
 
 ```go
-info, _ := arcgis.NewClient(capetown.BaseURL).ServiceInfo(ctx)
+info, _ := arcgis.NewClient(capetown.ServiceURL("ODP_SPLIT_5")).ServiceInfo(ctx)
 for _, l := range info.Layers {
     fmt.Println(l.ID, l.Name)
 }

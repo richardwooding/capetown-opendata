@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-10
+
+### Added
+- Locators for two suburb- and transport-level datasets the City loaded on
+  6 November 2026, both non-spatial tables on ArcGIS Online pinned to their hub
+  item IDs: `PopulationEstimates()` / `PopulationEstimateForSuburb(name)`
+  (modelled 2025 population and household estimates for 190 suburbs, key
+  `ServicePopulationEstimates`) and `TaxiFares()` / `TaxiFaresFromRank(ref)`
+  (minibus taxi fares per origin-destination rank pair surveyed 2022-2025, key
+  `ServiceTaxiFares`), with matching `Layer*` constants. `HubServices()` now
+  lists four keys.
+- `OfficialSuburbs()` and `OfficialSuburbByName(name)` on `ODP_SPLIT_5` layer 3,
+  with `ServiceOfficialSuburbs` and `LayerOfficialSuburbs`. The population
+  table is keyed by suburb name, and this is the polygon it joins to
+  (case-insensitively; `OFC_SBRB_NAME` is upper case).
+
+### Changed
+- `ServiceRequests()` now points at the City's replacement hub item
+  `da3b6d46845e4671bde500e8de7e1d3e` ("Service Requests Jan 2023 to Present").
+  The City froze the previous item on 6 October 2026 and marked it deprecated.
+  The new table has a reworked schema: `CreatedOnDT`, `ChangedOnDT` and
+  `CompletedDT` replace `Created_On_Date` and friends, and `Suburb_Clean`,
+  `Longitude` and `Latitude` are new. `Ward` is still a zero-padded string and
+  the default `ObjectId DESC` ordering still yields the newest requests first.
+- Requires `go-arcgis` v0.6.0.
+
 ## [0.4.0] - 2026-10-07
 
 ### Changed
@@ -90,6 +116,7 @@ module.
   `LoadSheddingBlocksForStage`, `ServiceRequests`, `ServiceRequestsBySuburb`,
   `Wards`, `LandParcels`, `TaxiRoutes`, and `WaterQualityResults`.
 
+[0.5.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.5.0
 [0.4.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.4.0
 [0.3.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.1
 [0.3.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.0

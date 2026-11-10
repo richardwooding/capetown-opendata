@@ -39,16 +39,22 @@ const liveAttempts = 3
 // datasets is every pre-built dataset locator, keyed by a readable name.
 func datasets() map[string]capetown.Query {
 	return map[string]capetown.Query{
-		"LoadSheddingBlocks":  capetown.LoadSheddingBlocks(),
-		"Wards":               capetown.Wards(),
-		"LandParcels":         capetown.LandParcels(),
-		"LandParcelsBySuburb": capetown.LandParcelsBySuburb("Newlands"),
-		"TaxiRoutes":          capetown.TaxiRoutes(),
-		"PublicLighting":      capetown.PublicLighting(),
-		"WaterQualityResults": capetown.WaterQualityResults(),
-		"HeritageInventory":   capetown.HeritageInventory(),
-		"ServiceRequests":     capetown.ServiceRequests(),
-		"BuildingPlans":       capetown.BuildingPlanApprovals(),
+		"LoadSheddingBlocks":   capetown.LoadSheddingBlocks(),
+		"Wards":                capetown.Wards(),
+		"LandParcels":          capetown.LandParcels(),
+		"LandParcelsBySuburb":  capetown.LandParcelsBySuburb("Newlands"),
+		"TaxiRoutes":           capetown.TaxiRoutes(),
+		"PublicLighting":       capetown.PublicLighting(),
+		"WaterQualityResults":  capetown.WaterQualityResults(),
+		"HeritageInventory":    capetown.HeritageInventory(),
+		"ServiceRequests":      capetown.ServiceRequests(),
+		"BuildingPlans":        capetown.BuildingPlanApprovals(),
+		"OfficialSuburbs":      capetown.OfficialSuburbs(),
+		"OfficialSuburbByName": capetown.OfficialSuburbByName("Athlone"),
+		"PopulationEstimates":  capetown.PopulationEstimates(),
+		"PopulationForSuburb":  capetown.PopulationEstimateForSuburb("Athlone"),
+		"TaxiFares":            capetown.TaxiFares(),
+		"TaxiFaresFromRank":    capetown.TaxiFaresFromRank("MBT019"),
 	}
 }
 
@@ -155,12 +161,20 @@ func TestLiveFilterFieldsExist(t *testing.T) {
 	}{
 		{"land parcel suburb", capetown.ServiceLandParcels, capetown.LayerLandParcels, "OFC_SBRB_NAME"},
 		{"water quality sample date", capetown.ServiceWaterQuality, capetown.LayerWaterQuality, "SMPL_DATE"},
+		{"official suburb name", capetown.ServiceOfficialSuburbs, capetown.LayerOfficialSuburbs, "OFC_SBRB_NAME"},
 		{"service request ward", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "Ward"},
 		{"service request complaint type", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "C3_Complaint_Type"},
-		{"service request created date", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "Created_On_Date"},
+		{"service request created date", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "CreatedOnDT"},
+		{"service request object id", capetown.ServiceServiceRequests, capetown.LayerServiceRequests, "ObjectId"},
 		{"building plan ward", capetown.ServiceBuildingPlans, capetown.LayerBuildingPlans, "Ward_No"},
 		{"building plan submission date", capetown.ServiceBuildingPlans, capetown.LayerBuildingPlans, "Submission_Date"},
 		{"building plan approval date", capetown.ServiceBuildingPlans, capetown.LayerBuildingPlans, "Approval_Date"},
+		{"population suburb", capetown.ServicePopulationEstimates, capetown.LayerPopulationEstimates, "Suburb_Name"},
+		{"population estimate", capetown.ServicePopulationEstimates, capetown.LayerPopulationEstimates, "Estimated_population"},
+		{"household estimate", capetown.ServicePopulationEstimates, capetown.LayerPopulationEstimates, "Estimated_households"},
+		{"taxi fare survey date", capetown.ServiceTaxiFares, capetown.LayerTaxiFares, "Survey_Date"},
+		{"taxi fare origin rank", capetown.ServiceTaxiFares, capetown.LayerTaxiFares, "Origin_Rank_Ref_No"},
+		{"taxi fare amount", capetown.ServiceTaxiFares, capetown.LayerTaxiFares, "Fare"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -56,14 +56,18 @@ func ServiceURLIn(folder, service string) string {
 // item ID; resolve the current URL with arcgis.ItemURL and fall back to
 // ServiceURL.
 const (
-	ServiceServiceRequests = "SERVICE_REQUESTS"
-	ServiceBuildingPlans   = "BUILDING_PLANS"
+	ServiceServiceRequests     = "SERVICE_REQUESTS"
+	ServiceBuildingPlans       = "BUILDING_PLANS"
+	ServicePopulationEstimates = "POPULATION_ESTIMATES"
+	ServiceTaxiFares           = "TAXI_FARES"
 )
 
-// Layer IDs within the ArcGIS Online datasets; both are non-spatial tables.
+// Layer IDs within the ArcGIS Online datasets; all are non-spatial tables.
 const (
-	LayerServiceRequests = 0
-	LayerBuildingPlans   = 0
+	LayerServiceRequests     = 0
+	LayerBuildingPlans       = 0
+	LayerPopulationEstimates = 0
+	LayerTaxiFares           = 0
 )
 
 type hubDataset struct {
@@ -74,13 +78,25 @@ type hubDataset struct {
 const agolFolder = "https://services6.arcgis.com/nyYfO9SxHU2ChQd9/arcgis/rest/services"
 
 var hubDatasets = map[string]hubDataset{
+	// The City froze the original service requests item
+	// (90711027d33940b5a06e96ad8a8f7ede) on 6 October 2026 and publishes the
+	// live table under a new item with a reworked schema (CreatedOnDT rather
+	// than Created_On_Date, plus Suburb_Clean, Longitude and Latitude).
 	ServiceServiceRequests: {
-		itemID:      "90711027d33940b5a06e96ad8a8f7ede",
-		fallbackURL: agolFolder + "/Service_Requests_2023_until_20_May_2026/FeatureServer",
+		itemID:      "da3b6d46845e4671bde500e8de7e1d3e",
+		fallbackURL: agolFolder + "/schema_jan2023_iso/FeatureServer",
 	},
 	ServiceBuildingPlans: {
 		itemID:      "a9a32e2ecc074b318ee0ad136fb7e2af",
 		fallbackURL: agolFolder + "/Building_Plan_Approvals_2014_to_2025/FeatureServer",
+	},
+	ServicePopulationEstimates: {
+		itemID:      "61bd1a6c374d44a093862784b79f6c23",
+		fallbackURL: agolFolder + "/Population_Estimates_2026_(Suburb_Level)/FeatureServer",
+	},
+	ServiceTaxiFares: {
+		itemID:      "d160df6a7d7d4006a3eacf265585a27a",
+		fallbackURL: agolFolder + "/Minibus_taxi_fares_surveyed_between_2023_2025_Rev2_06112026/FeatureServer",
 	},
 }
 
@@ -92,7 +108,7 @@ func HubItemID(service string) (string, bool) {
 
 // HubServices lists the service keys hosted on ArcGIS Online.
 func HubServices() []string {
-	return []string{ServiceServiceRequests, ServiceBuildingPlans}
+	return []string{ServiceServiceRequests, ServiceBuildingPlans, ServicePopulationEstimates, ServiceTaxiFares}
 }
 
 // Split feature-service names hosting the well-known datasets, validated
@@ -102,6 +118,7 @@ const (
 	ServiceHeritageInventory = "ODP_SPLIT_3"
 	ServiceLandParcels       = "ODP_SPLIT_4"
 	ServiceWards             = "ODP_SPLIT_5"
+	ServiceOfficialSuburbs   = "ODP_SPLIT_5"
 	ServiceTaxiRoutes        = "ODP_SPLIT_6"
 	ServiceLoadShedding      = "ODP_SPLIT_7"
 	ServiceWaterQuality      = "ODP_SPLIT_12"
@@ -113,6 +130,7 @@ const (
 	LayerHeritageInventory  = 2  // ODP_SPLIT_3 "Heritage Inventory"
 	LayerLandParcels        = 0  // ODP_SPLIT_4 "Land Parcels"
 	LayerWards              = 6  // ODP_SPLIT_5 "Ward"
+	LayerOfficialSuburbs    = 3  // ODP_SPLIT_5 "Official Suburb"
 	LayerTaxiRoutes         = 11 // ODP_SPLIT_6 "Taxi Routes"
 	LayerLoadSheddingBlocks = 13 // ODP_SPLIT_7 "Loadshedding Blocks"
 	LayerWaterQuality       = 12 // ODP_SPLIT_12 "Inland Water Quality Results (Raw)" (a table)
@@ -140,10 +158,20 @@ func Services() []string {
 	}
 }
 
-// fieldLandParcelSuburb is the official-suburb-name column on the land parcels
-// layer. The suburb column name is not consistent across CCT layers, so it is
-// scoped to the dataset that uses it.
-const fieldLandParcelSuburb = "OFC_SBRB_NAME"
+// fieldOfficialSuburbName is the official-suburb-name column shared by the
+// land parcels and official suburb layers. Other CCT layers name their suburb
+// column differently, so do not assume it elsewhere.
+const fieldOfficialSuburbName = "OFC_SBRB_NAME"
+
+// equalsFold builds a case-insensitive equality clause. Several CCT layers
+// store names in upper case while callers pass mixed case, so a naive equality
+// would silently return nothing. Single quotes in value are escaped.
+func equalsFold(field, value string) string {
+	return fmt.Sprintf("UPPER(%s) = UPPER('%s')", field, quoteSQL(value))
+}
+
+// quoteSQL escapes a string literal for an ArcGIS where clause.
+func quoteSQL(s string) string { return strings.ReplaceAll(s, "'", "''") }
 
 // --- Load Shedding ---
 
@@ -160,6 +188,29 @@ func Wards() Query {
 	return Query{Service: ServiceWards, Params: arcgis.QueryParams{LayerID: LayerWards}}
 }
 
+// --- Official Suburbs ---
+
+// OfficialSuburbs returns the official suburb boundary polygons, ordered by
+// name. OFC_SBRB_NAME is upper case; it is the key that joins suburb-level
+// tables such as PopulationEstimates to a shape.
+func OfficialSuburbs() Query {
+	return Query{
+		Service: ServiceOfficialSuburbs,
+		Params: arcgis.QueryParams{
+			LayerID:       LayerOfficialSuburbs,
+			OrderByFields: []string{fieldOfficialSuburbName},
+		},
+	}
+}
+
+// OfficialSuburbByName returns the official suburb polygon(s) matching a name,
+// case-insensitively.
+func OfficialSuburbByName(suburb string) Query {
+	q := OfficialSuburbs()
+	q.Params.Where = equalsFold(fieldOfficialSuburbName, suburb)
+	return q
+}
+
 // --- Land Parcels ---
 
 // LandParcels returns cadastral land parcel (erf) polygons.
@@ -173,7 +224,7 @@ func LandParcels() Query {
 // return nothing.
 func LandParcelsBySuburb(suburb string) Query {
 	q := LandParcels()
-	q.Params.Where = fmt.Sprintf("UPPER(%s) = UPPER('%s')", fieldLandParcelSuburb, strings.ReplaceAll(suburb, "'", "''"))
+	q.Params.Where = equalsFold(fieldOfficialSuburbName, suburb)
 	return q
 }
 
@@ -182,6 +233,30 @@ func LandParcelsBySuburb(suburb string) Query {
 // TaxiRoutes returns all registered minibus taxi routes.
 func TaxiRoutes() Query {
 	return Query{Service: ServiceTaxiRoutes, Params: arcgis.QueryParams{LayerID: LayerTaxiRoutes}}
+}
+
+// TaxiFares returns minibus taxi fares surveyed at ranks, newest survey first.
+// Each row is an origin-destination rank pair with the average fare in rands
+// (Fare), the survey date and, for each end, a rank reference (e.g. MBT019), a
+// name and WGS84 longitude/latitude held as plain attribute columns; the table
+// has no geometry.
+func TaxiFares() Query {
+	return Query{
+		Service: ServiceTaxiFares,
+		Params: arcgis.QueryParams{
+			LayerID:       LayerTaxiFares,
+			OrderByFields: []string{"Survey_Date DESC"},
+		},
+	}
+}
+
+// TaxiFaresFromRank filters surveyed fares to those departing a rank, by its
+// reference code (Origin_Rank_Ref_No, e.g. "MBT019"). The codes are the stable
+// key; rank names carry inconsistent spacing.
+func TaxiFaresFromRank(originRankRef string) Query {
+	q := TaxiFares()
+	q.Params.Where = fmt.Sprintf("Origin_Rank_Ref_No = '%s'", quoteSQL(originRankRef))
+	return q
 }
 
 // --- Electricity ---
@@ -213,12 +288,38 @@ func WaterQualityResults() Query {
 	}
 }
 
+// --- Demographics ---
+
+// PopulationEstimates returns the City's model-based population and household
+// estimates per official suburb, ordered by suburb name. They are an annual
+// planning estimate derived from the 2022 census, not an official count, and
+// the values are fractional. Suburb_Name is mixed case; match it with
+// PopulationEstimateForSuburb or join it case-insensitively to OFC_SBRB_NAME
+// on OfficialSuburbs.
+func PopulationEstimates() Query {
+	return Query{
+		Service: ServicePopulationEstimates,
+		Params: arcgis.QueryParams{
+			LayerID:       LayerPopulationEstimates,
+			OrderByFields: []string{"Suburb_Name"},
+		},
+	}
+}
+
+// PopulationEstimateForSuburb returns the estimate row for one suburb,
+// matched case-insensitively.
+func PopulationEstimateForSuburb(suburb string) Query {
+	q := PopulationEstimates()
+	q.Params.Where = equalsFold("Suburb_Name", suburb)
+	return q
+}
+
 // --- ArcGIS Online datasets ---
 
 // ServiceRequests returns citizen service requests, most recently loaded first.
-// Sorting the five-million-row table by Created_On_Date takes ArcGIS Online
-// tens of seconds and times out when paging, whereas the object ID is indexed
-// and its highest values are the newest requests.
+// Sorting the four-and-a-half-million-row table by CreatedOnDT takes ArcGIS
+// Online tens of seconds and times out when paging, whereas the object ID is
+// indexed and its highest values are the newest requests.
 func ServiceRequests() Query {
 	return Query{
 		Service: ServiceServiceRequests,

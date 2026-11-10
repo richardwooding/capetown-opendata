@@ -79,6 +79,42 @@ func TestLandParcelsBySuburbEscapesQuotes(t *testing.T) {
 	}
 }
 
+func TestOfficialSuburbByNameIsCaseInsensitive(t *testing.T) {
+	q := capetown.OfficialSuburbByName("Athlone")
+	if q.Service != capetown.ServiceOfficialSuburbs || q.Params.LayerID != capetown.LayerOfficialSuburbs {
+		t.Errorf("locator = %s/%d, want %s/%d", q.Service, q.Params.LayerID, capetown.ServiceOfficialSuburbs, capetown.LayerOfficialSuburbs)
+	}
+	if want := "UPPER(OFC_SBRB_NAME) = UPPER('Athlone')"; q.Params.Where != want {
+		t.Errorf("Where = %q, want %q", q.Params.Where, want)
+	}
+	if len(q.Params.OrderByFields) == 0 {
+		t.Error("expected suburbs to be ordered by name")
+	}
+}
+
+func TestPopulationEstimateForSuburbEscapesQuotes(t *testing.T) {
+	q := capetown.PopulationEstimateForSuburb("Bellville Teachers' Training College")
+	if want := "UPPER(Suburb_Name) = UPPER('Bellville Teachers'' Training College')"; q.Params.Where != want {
+		t.Errorf("Where = %q, want %q", q.Params.Where, want)
+	}
+	if base := capetown.PopulationEstimates(); base.Params.Where != "" || q.Service != base.Service {
+		t.Errorf("filtered variant must delegate to PopulationEstimates: base=%+v filtered=%+v", base, q)
+	}
+}
+
+func TestTaxiFaresFromRank(t *testing.T) {
+	q := capetown.TaxiFaresFromRank("MBT019")
+	if q.Service != capetown.ServiceTaxiFares || q.Params.LayerID != capetown.LayerTaxiFares {
+		t.Errorf("locator = %s/%d", q.Service, q.Params.LayerID)
+	}
+	if want := "Origin_Rank_Ref_No = 'MBT019'"; q.Params.Where != want {
+		t.Errorf("Where = %q, want %q", q.Params.Where, want)
+	}
+	if q2 := capetown.TaxiFaresFromRank("O'Rank"); !strings.Contains(q2.Params.Where, "O''Rank") {
+		t.Errorf("Where = %q, want escaped single quote", q2.Params.Where)
+	}
+}
+
 func TestWaterQualityResultsOrdered(t *testing.T) {
 	q := capetown.WaterQualityResults()
 	if q.Service != capetown.ServiceWaterQuality {
@@ -94,13 +130,16 @@ func TestWaterQualityResultsOrdered(t *testing.T) {
 
 func TestNamedQueriesHaveLocators(t *testing.T) {
 	cases := map[string]capetown.Query{
-		"LoadSheddingBlocks": capetown.LoadSheddingBlocks(),
-		"Wards":              capetown.Wards(),
-		"LandParcels":        capetown.LandParcels(),
-		"TaxiRoutes":         capetown.TaxiRoutes(),
-		"PublicLighting":     capetown.PublicLighting(),
-		"HeritageInventory":  capetown.HeritageInventory(),
-		"WaterQuality":       capetown.WaterQualityResults(),
+		"LoadSheddingBlocks":  capetown.LoadSheddingBlocks(),
+		"Wards":               capetown.Wards(),
+		"LandParcels":         capetown.LandParcels(),
+		"TaxiRoutes":          capetown.TaxiRoutes(),
+		"PublicLighting":      capetown.PublicLighting(),
+		"HeritageInventory":   capetown.HeritageInventory(),
+		"WaterQuality":        capetown.WaterQualityResults(),
+		"OfficialSuburbs":     capetown.OfficialSuburbs(),
+		"PopulationEstimates": capetown.PopulationEstimates(),
+		"TaxiFares":           capetown.TaxiFares(),
 	}
 	for name, q := range cases {
 		if q.Service == "" {
@@ -113,6 +152,9 @@ func TestNamedQueriesHaveLocators(t *testing.T) {
 }
 
 func TestHubServicesResolve(t *testing.T) {
+	if n := len(capetown.HubServices()); n != 4 {
+		t.Errorf("HubServices() lists %d services, want 4", n)
+	}
 	for _, svc := range capetown.HubServices() {
 		id, ok := capetown.HubItemID(svc)
 		if !ok || len(id) != 32 {
@@ -138,6 +180,8 @@ func TestHubDatasetQueries(t *testing.T) {
 	}{
 		"ServiceRequests":       {capetown.ServiceRequests(), capetown.ServiceServiceRequests, "ObjectId DESC"},
 		"BuildingPlanApprovals": {capetown.BuildingPlanApprovals(), capetown.ServiceBuildingPlans, "Submission_Date DESC"},
+		"PopulationEstimates":   {capetown.PopulationEstimates(), capetown.ServicePopulationEstimates, "Suburb_Name"},
+		"TaxiFares":             {capetown.TaxiFares(), capetown.ServiceTaxiFares, "Survey_Date DESC"},
 	}
 	for name, tc := range cases {
 		if tc.q.Service != tc.service || len(tc.q.Params.OrderByFields) != 1 || tc.q.Params.OrderByFields[0] != tc.order {

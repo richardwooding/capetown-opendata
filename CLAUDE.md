@@ -19,25 +19,34 @@ go test -race -run TestLoadSheddingBlocks    # single test
 golangci-lint run                            # v2 config in .golangci.yml
 ```
 
-Requires Go 1.26+. CI (`.github/workflows/go.yml`) runs build, race tests, and
+Requires Go 1.27+. CI (`.github/workflows/go.yml`) runs build, race tests, and
 golangci-lint v2 on push/PR to `main`.
 
 ## Architecture & conventions
 
-- **Two kinds of exports per dataset:** a `Layer*` integer constant (the
-  ArcGIS layer ID) plus one or more constructor functions returning
-  `arcgis.QueryParams` with sensible default `Fields` / `OrderByFields`.
+- **Three kinds of exports per dataset:** a `Service*` string constant (the
+  `ODP_SPLIT_*` service, or a key such as `SERVICE_REQUESTS` for an ArcGIS
+  Online dataset), a `Layer*` integer constant (the layer ID within that
+  service) and one or more constructors returning a `Query{Service, Params}`
+  with a sensible default `OrderByFields`. Constructors never pin `Fields`
+  (a test enforces this): the upstream schemas drift, so callers select
+  columns themselves.
 - **Filtered variants delegate to the base constructor**, then set `.Where`
-  (e.g. `LoadSheddingBlocksForStage` calls `LoadSheddingBlocks()` and adds a
-  `STAGE = N` clause). Follow this pattern when adding filters rather than
-  rebuilding the params from scratch.
+  (e.g. `LandParcelsBySuburb` calls `LandParcels()` and adds a clause via
+  `equalsFold`). Follow this pattern when adding filters rather than
+  rebuilding the params from scratch. Match names case-insensitively: several
+  City layers store them in upper case.
+- **ArcGIS Online datasets** (`hubDatasets`) are pinned to a hub item ID with a
+  fallback URL, because the City republishes them under date-stamped service
+  names. Add the key to `HubServices()` as well; the tests loop over it.
 - **Layer IDs are best-effort** and may drift as the upstream service is
-  republished (`LayerServiceRequests` is an explicit placeholder). They are not
-  validated against the live service in tests. Confirm a suspect ID against the
-  live service via `arcgis.Client.ServiceInfo` before changing a constant.
-- **Shared field names** used across datasets (e.g. `fieldSuburb = "SUBURB"`)
-  are unexported constants — `goconst` requires literals repeated 3+ times to
-  be hoisted.
+  republished. The unit tests do not touch the network; the daily
+  `go test -tags=integration` run (`live-check.yml`) catches drift. Confirm a
+  suspect ID against the live service via `arcgis.Client.ServiceInfo` before
+  changing a constant.
+- **Shared field names** used across datasets (e.g.
+  `fieldOfficialSuburbName = "OFC_SBRB_NAME"`) are unexported constants —
+  `goconst` requires literals repeated 3+ times to be hoisted.
 
 ## Linting notes (golangci-lint v2)
 
