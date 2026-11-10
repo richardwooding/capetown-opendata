@@ -130,16 +130,17 @@ func TestWaterQualityResultsOrdered(t *testing.T) {
 
 func TestNamedQueriesHaveLocators(t *testing.T) {
 	cases := map[string]capetown.Query{
-		"LoadSheddingBlocks":  capetown.LoadSheddingBlocks(),
-		"Wards":               capetown.Wards(),
-		"LandParcels":         capetown.LandParcels(),
-		"TaxiRoutes":          capetown.TaxiRoutes(),
-		"PublicLighting":      capetown.PublicLighting(),
-		"HeritageInventory":   capetown.HeritageInventory(),
-		"WaterQuality":        capetown.WaterQualityResults(),
-		"OfficialSuburbs":     capetown.OfficialSuburbs(),
-		"PopulationEstimates": capetown.PopulationEstimates(),
-		"TaxiFares":           capetown.TaxiFares(),
+		"LoadSheddingBlocks":     capetown.LoadSheddingBlocks(),
+		"Wards":                  capetown.Wards(),
+		"LandParcels":            capetown.LandParcels(),
+		"TaxiRoutes":             capetown.TaxiRoutes(),
+		"PublicLighting":         capetown.PublicLighting(),
+		"HeritageInventory":      capetown.HeritageInventory(),
+		"WaterQuality":           capetown.WaterQualityResults(),
+		"OfficialSuburbs":        capetown.OfficialSuburbs(),
+		"PopulationEstimates":    capetown.PopulationEstimates(),
+		"TaxiFares":              capetown.TaxiFares(),
+		"ServiceRequestsSpatial": capetown.ServiceRequestsSpatial(),
 	}
 	for name, q := range cases {
 		if q.Service == "" {
@@ -152,8 +153,8 @@ func TestNamedQueriesHaveLocators(t *testing.T) {
 }
 
 func TestHubServicesResolve(t *testing.T) {
-	if n := len(capetown.HubServices()); n != 4 {
-		t.Errorf("HubServices() lists %d services, want 4", n)
+	if n := len(capetown.HubServices()); n != 5 {
+		t.Errorf("HubServices() lists %d services, want 5", n)
 	}
 	for _, svc := range capetown.HubServices() {
 		id, ok := capetown.HubItemID(svc)
@@ -178,10 +179,11 @@ func TestHubDatasetQueries(t *testing.T) {
 		service string
 		order   string
 	}{
-		"ServiceRequests":       {capetown.ServiceRequests(), capetown.ServiceServiceRequests, "ObjectId DESC"},
-		"BuildingPlanApprovals": {capetown.BuildingPlanApprovals(), capetown.ServiceBuildingPlans, "Submission_Date DESC"},
-		"PopulationEstimates":   {capetown.PopulationEstimates(), capetown.ServicePopulationEstimates, "Suburb_Name"},
-		"TaxiFares":             {capetown.TaxiFares(), capetown.ServiceTaxiFares, "Survey_Date DESC"},
+		"ServiceRequests":        {capetown.ServiceRequests(), capetown.ServiceServiceRequests, "ObjectId DESC"},
+		"BuildingPlanApprovals":  {capetown.BuildingPlanApprovals(), capetown.ServiceBuildingPlans, "Submission_Date DESC"},
+		"PopulationEstimates":    {capetown.PopulationEstimates(), capetown.ServicePopulationEstimates, "Suburb_Name"},
+		"TaxiFares":              {capetown.TaxiFares(), capetown.ServiceTaxiFares, "Survey_Date DESC"},
+		"ServiceRequestsSpatial": {capetown.ServiceRequestsSpatial(), capetown.ServiceServiceRequestsSpatial, "ObjectId DESC"},
 	}
 	for name, tc := range cases {
 		if tc.q.Service != tc.service || len(tc.q.Params.OrderByFields) != 1 || tc.q.Params.OrderByFields[0] != tc.order {

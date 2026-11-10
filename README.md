@@ -48,7 +48,8 @@ knowing:
   `LandParcelsBySuburb`, `LoadSheddingBlocks`, `TaxiRoutes`, `PublicLighting`,
   `HeritageInventory`, `WaterQualityResults`.
 - ArcGIS Online tables are pinned to their hub item IDs, because the City
-  republishes them under date-stamped service names: `ServiceRequests`,
+  republishes them under date-stamped service names: `ServiceRequests` and
+  its geocoded point subset `ServiceRequestsSpatial`,
   `BuildingPlanApprovals`, `PopulationEstimates` /
   `PopulationEstimateForSuburb` and `TaxiFares` / `TaxiFaresFromRank`.
   `HubServices()` lists their keys and `HubItemID(service)` gives the item ID;

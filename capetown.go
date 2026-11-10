@@ -56,18 +56,21 @@ func ServiceURLIn(folder, service string) string {
 // item ID; resolve the current URL with arcgis.ItemURL and fall back to
 // ServiceURL.
 const (
-	ServiceServiceRequests     = "SERVICE_REQUESTS"
-	ServiceBuildingPlans       = "BUILDING_PLANS"
-	ServicePopulationEstimates = "POPULATION_ESTIMATES"
-	ServiceTaxiFares           = "TAXI_FARES"
+	ServiceServiceRequests        = "SERVICE_REQUESTS"
+	ServiceServiceRequestsSpatial = "SERVICE_REQUESTS_SPATIAL"
+	ServiceBuildingPlans          = "BUILDING_PLANS"
+	ServicePopulationEstimates    = "POPULATION_ESTIMATES"
+	ServiceTaxiFares              = "TAXI_FARES"
 )
 
-// Layer IDs within the ArcGIS Online datasets; all are non-spatial tables.
+// Layer IDs within the ArcGIS Online datasets. All are non-spatial tables
+// except the spatial service requests layer, which is points.
 const (
-	LayerServiceRequests     = 0
-	LayerBuildingPlans       = 0
-	LayerPopulationEstimates = 0
-	LayerTaxiFares           = 0
+	LayerServiceRequests        = 0
+	LayerServiceRequestsSpatial = 0
+	LayerBuildingPlans          = 0
+	LayerPopulationEstimates    = 0
+	LayerTaxiFares              = 0
 )
 
 type hubDataset struct {
@@ -85,6 +88,13 @@ var hubDatasets = map[string]hubDataset{
 	ServiceServiceRequests: {
 		itemID:      "da3b6d46845e4671bde500e8de7e1d3e",
 		fallbackURL: agolFolder + "/schema_jan2023_iso/FeatureServer",
+	},
+	// The geocoded subset of the service requests table, published as a point
+	// layer. It keeps the older date column names (Created_On_Date,
+	// Completed_Date) that the table has since renamed.
+	ServiceServiceRequestsSpatial: {
+		itemID:      "6e8f77f27ea84763abbc11023561a406",
+		fallbackURL: agolFolder + "/service_requests_2023_01_02_spatial/FeatureServer",
 	},
 	ServiceBuildingPlans: {
 		itemID:      "a9a32e2ecc074b318ee0ad136fb7e2af",
@@ -108,7 +118,7 @@ func HubItemID(service string) (string, bool) {
 
 // HubServices lists the service keys hosted on ArcGIS Online.
 func HubServices() []string {
-	return []string{ServiceServiceRequests, ServiceBuildingPlans, ServicePopulationEstimates, ServiceTaxiFares}
+	return []string{ServiceServiceRequests, ServiceServiceRequestsSpatial, ServiceBuildingPlans, ServicePopulationEstimates, ServiceTaxiFares}
 }
 
 // Split feature-service names hosting the well-known datasets, validated
@@ -325,6 +335,21 @@ func ServiceRequests() Query {
 		Service: ServiceServiceRequests,
 		Params: arcgis.QueryParams{
 			LayerID:       LayerServiceRequests,
+			OrderByFields: []string{"ObjectId DESC"},
+		},
+	}
+}
+
+// ServiceRequestsSpatial returns the geocoded subset of ServiceRequests as
+// points (roughly three quarters of all notifications), newest first. It
+// carries the same attribute columns as the table, except that its dates are
+// Created_On_Date, Changed_on and Completed_Date rather than CreatedOnDT,
+// ChangedOnDT and CompletedDT.
+func ServiceRequestsSpatial() Query {
+	return Query{
+		Service: ServiceServiceRequestsSpatial,
+		Params: arcgis.QueryParams{
+			LayerID:       LayerServiceRequestsSpatial,
 			OrderByFields: []string{"ObjectId DESC"},
 		},
 	}

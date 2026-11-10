@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-10
+
+### Added
+- `ServiceRequestsSpatial()`, with `ServiceServiceRequestsSpatial` and
+  `LayerServiceRequestsSpatial`: the City's geocoded subset of the service
+  requests table, published as a point layer under hub item
+  `6e8f77f27ea84763abbc11023561a406` (about 3.3 million of 4.5 million
+  notifications). It takes spatial filters, which the table cannot. Note its
+  date columns keep the older names `Created_On_Date`, `Changed_on` and
+  `Completed_Date`. `HubServices()` now lists five keys.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added
@@ -116,6 +127,7 @@ module.
   `LoadSheddingBlocksForStage`, `ServiceRequests`, `ServiceRequestsBySuburb`,
   `Wards`, `LandParcels`, `TaxiRoutes`, and `WaterQualityResults`.
 
+[0.6.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.6.0
 [0.5.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.5.0
 [0.4.0]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.4.0
 [0.3.1]: https://github.com/richardwooding/capetown-opendata/releases/tag/v0.3.1
